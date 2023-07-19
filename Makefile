@@ -147,9 +147,15 @@ ifndef LLAMA_NO_ACCELERATE
 	endif
 endif # LLAMA_NO_ACCELERATE
 
+ifdef LLAMA_MPI
+	CFLAGS += -DGGML_USE_MPI -Wno-cast-qual
+	CXXFLAGS += -DGGML_USE_MPI -Wno-cast-qual
+	OBJS     += ggml-mpi.o
+endif # LLAMA_MPI
+
 ifdef LLAMA_OPENBLAS
-	CFLAGS  += -DGGML_USE_OPENBLAS -I/usr/local/include/openblas -I/usr/include/openblas
-	LDFLAGS += -lopenblas
+	CFLAGS  += -DGGML_USE_OPENBLAS $(shell pkg-config --cflags openblas)
+	LDFLAGS += $(shell pkg-config --libs openblas)
 endif # LLAMA_OPENBLAS
 
 ifdef LLAMA_BLIS
@@ -163,7 +169,12 @@ ifdef LLAMA_CUBLAS
 	LDFLAGS   += -lcublas -lculibos -lcudart -lcublasLt -lpthread -ldl -lrt -L/usr/local/cuda/lib64 -L/opt/cuda/lib64 -L$(CUDA_PATH)/targets/x86_64-linux/lib
 	OBJS      += ggml-cuda.o
 	NVCC      = nvcc
-	NVCCFLAGS = --forward-unknown-to-host-compiler -arch=native
+	NVCCFLAGS = --forward-unknown-to-host-compiler
+ifdef CUDA_DOCKER_ARCH
+	NVCCFLAGS += -Wno-deprecated-gpu-targets -arch=$(CUDA_DOCKER_ARCH)
+else
+	NVCCFLAGS += -arch=native
+endif # CUDA_DOCKER_ARCH
 ifdef LLAMA_CUDA_FORCE_DMMV
 	NVCCFLAGS += -DGGML_CUDA_FORCE_DMMV
 endif # LLAMA_CUDA_FORCE_DMMV
@@ -187,6 +198,7 @@ ifdef LLAMA_CUDA_KQUANTS_ITER
 else
 	NVCCFLAGS += -DK_QUANTS_PER_ITERATION=2
 endif
+
 ggml-cuda.o: ggml-cuda.cu ggml-cuda.h
 	$(NVCC) $(NVCCFLAGS) $(CXXFLAGS) -Wno-pedantic -c $< -o $@
 endif # LLAMA_CUBLAS
@@ -211,9 +223,6 @@ ifdef LLAMA_METAL
 	CXXFLAGS += -DGGML_USE_METAL
 	LDFLAGS  += -framework Foundation -framework Metal -framework MetalKit -framework MetalPerformanceShaders
 	OBJS     += ggml-metal.o
-
-ggml-metal.o: ggml-metal.m ggml-metal.h
-	$(CC) $(CFLAGS) -c $< -o $@
 endif # LLAMA_METAL
 
 ifneq ($(filter aarch64%,$(UNAME_M)),)
@@ -237,6 +246,16 @@ ifneq ($(filter armv8%,$(UNAME_M)),)
 	# Raspberry Pi 3, 4, Zero 2 (32-bit)
 	CFLAGS += -mfp16-format=ieee -mno-unaligned-access
 endif
+
+ifdef LLAMA_METAL
+ggml-metal.o: ggml-metal.m ggml-metal.h
+	$(CC) $(CFLAGS) -c $< -o $@
+endif # LLAMA_METAL
+
+ifdef LLAMA_MPI
+ggml-mpi.o: ggml-mpi.c ggml-mpi.h
+	$(CC) $(CFLAGS) -c $< -o $@
+endif # LLAMA_MPI
 
 ifdef LLAMA_NO_K_QUANTS
 k_quants.o: k_quants.c k_quants.h
