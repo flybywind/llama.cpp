@@ -4383,7 +4383,7 @@ struct ggml_context * ggml_init(struct ggml_init_params params) {
 
     ggml_assert_aligned(ctx->mem_buffer);
 
-    GGML_PRINT_DEBUG("%s: context initialized\n", __func__);
+    GGML_PRINT_DEBUG("%s: context initialized, mem_size = %d M\n", __func__, ctx->mem_size >> 20);
 
     ggml_critical_section_end();
 
@@ -4399,9 +4399,8 @@ void ggml_free(struct ggml_context * ctx) {
     for (int i = 0; i < GGML_MAX_CONTEXTS; i++) {
         if (&g_state.contexts[i].context == ctx) {
             g_state.contexts[i].used = false;
-
             GGML_PRINT_DEBUG("%s: context %d with %d objects has been freed. memory used = %zu\n",
-                    __func__, i, ctx->n_objects, ctx->objects_end->offs + ctx->objects_end->size);
+                    __func__, i, ctx->n_objects,(ctx->objects_end ? ctx->objects_end->offs + ctx->objects_end->size : 0));
 
             if (ctx->mem_buffer_owned) {
                 GGML_ALIGNED_FREE(ctx->mem_buffer);

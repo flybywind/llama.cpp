@@ -28,6 +28,8 @@
 #endif
 #endif
 #endif
+#undef MAX
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 #include <array>
 #include <ctime>
@@ -1297,9 +1299,9 @@ static bool llama_eval_internal(
 
     auto & mem_per_token = lctx.mem_per_token;
     auto & buf_compute   = lctx.buf_compute;
-
+    size_t mem_size = MAX(lctx.buf_compute.size, ggml_get_mem_size(lctx.model.ctx)); 
     struct ggml_init_params params = {
-        /*.mem_size   =*/ buf_compute.size,
+        /*.mem_size   =*/ mem_size,
         /*.mem_buffer =*/ buf_compute.addr,
         /*.no_alloc   =*/ false,
     };
