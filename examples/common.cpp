@@ -433,6 +433,33 @@ bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
                 break;
             }
             params.input_suffix = argv[i];
+        } else if (args == '--knowledge-str') {
+            if (++i >= argc) {
+                invalid_param = true;
+                break;
+            }
+            params.knowledge_str = argv[i]
+        } else if (args == '--knowledge-file') {
+            if (++i >= argc) {
+                invalid_param = true;
+                break;
+            }
+            std::ifstream file(argv[i]);
+            if (!file) {
+                fprintf(stderr, "error: failed to open file '%s'\n", argv[i]);
+                invalid_param = true;
+                break;
+            }
+            std::copy(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>(), back_inserter(params.knowledge_str));
+            if (params.knowledge_str.back() == '\n') {
+                params.knowledge_str.pop_back();
+            }
+        } else if (args == '--knowledge-scale') {
+            if (++i >= argc) {
+                invalid_param = true;
+                break;
+            }
+            params.knowledge_scale = std::stof(argv[i])
         } else {
             fprintf(stderr, "error: unknown argument: %s\n", arg.c_str());
             gpt_print_usage(argc, argv, default_params);
@@ -522,6 +549,10 @@ void gpt_print_usage(int /*argc*/, char ** argv, const gpt_params & params) {
     fprintf(stderr, "  --perplexity          compute perplexity over the prompt\n");
     fprintf(stderr, "  --keep                number of tokens to keep from the initial prompt (default: %d, -1 = all)\n", params.n_keep);
     fprintf(stderr, "  --chunks N            max number of chunks to process (default: %d, -1 = all)\n", params.n_chunks);
+    fprintf(stderr, "  --knowledge_str       PROMPT \n");
+    fprintf(stderr, "                        knowledge content that can be used for guidance. (default: empty)\n");
+    fprintf(stderr, "  --knowledge_file      file name for the knowledge content, will ignore knowledge_str if provided (default: empty)\n");
+    fprintf(stderr, "  --knowledge_scale     how strong the knowledge content impact on the generated output. (default: %f)\n", params.knowledge_scale);
     if (llama_mlock_supported()) {
         fprintf(stderr, "  --mlock               force system to keep model in RAM rather than swapping or compressing\n");
     }

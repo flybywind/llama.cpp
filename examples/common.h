@@ -57,6 +57,9 @@ struct gpt_params {
     float       cfg_scale         = 1.f;   // How strong is guidance
     float       cfg_smooth_factor = 1.f;   // Smooth factor between old and new logits
 
+    std::string knowledge_str;             // get knowledge string in command line input
+    float       knowledge_scale   = 0.f;   // how strong the knowledge content impact on the generated output
+
     std::string model             = "models/7B/ggml-model.bin"; // model path
     std::string model_alias       = "unknown"; // model alias
     std::string prompt            = "";
