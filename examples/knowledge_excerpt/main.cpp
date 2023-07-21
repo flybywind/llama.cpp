@@ -196,20 +196,20 @@ int main(int argc, char** argv) {
 
         if (ctx_guidance) {
             fprintf(stderr, "\n");
-            fprintf(stderr, "%s: negative prompt: '%s'\n", __func__, params.cfg_negative_prompt.c_str());
-            fprintf(stderr, "%s: number of tokens in negative prompt = %zu\n", __func__, guidance_inp.size());
+            fprintf(stderr, "%s: knowledge context: '%s'\n", __func__, params.knowledge_str.c_str());
+            fprintf(stderr, "%s: number of tokens in knowledge context = %zu\n", __func__, guidance_inp.size());
             for (int i = 0; i < (int)guidance_inp.size(); i++) {
                 fprintf(stderr, "%6d -> '%s'\n", guidance_inp[i], llama_token_to_str(ctx, guidance_inp[i]));
             }
         }
 
-        if (params.n_keep > 0) {
-            fprintf(stderr, "%s: static prompt based on n_keep: '", __func__);
-            for (int i = 0; i < params.n_keep; i++) {
-                fprintf(stderr, "%s", llama_token_to_str(ctx, embd_inp[i]));
-            }
-            fprintf(stderr, "'\n");
-        }
+        // if (params.n_keep > 0) {
+        //     fprintf(stderr, "%s: static prompt based on n_keep: '", __func__);
+        //     for (int i = 0; i < params.n_keep; i++) {
+        //         fprintf(stderr, "%s", llama_token_to_str(ctx, embd_inp[i]));
+        //     }
+        //     fprintf(stderr, "'\n");
+        // }
         fprintf(stderr, "\n");
     }
 
@@ -251,8 +251,32 @@ int main(int argc, char** argv) {
     const bool penalize_nl = params.penalize_nl;
 
     llama_token id = 0;
-
-    {
+    while ((int)embd.size() < n_ctx && embd.size() < embd_inp.size()) {
+        embd.push_back(embd_inp[n_consumed]);
+        ++n_consumed;
+    }
+    // // display text
+    // if (input_echo) {
+    //     for (auto id : embd) {
+    //         printf("%s", llama_token_to_str(ctx, id));
+    //     }
+    //     fflush(stdout);
+    // }
+    // // reset color to default if we there is no pending user input
+    // if (input_echo && (int)embd_inp.size() == n_consumed) {
+    //     console_set_color(con_st, CONSOLE_COLOR_DEFAULT);
+    // }
+    const auto input_size = embd.size();
+    const auto input_buf = embd.data();
+    // iter each batch of the input:
+    for (int i = 0; i < input_size; i += params.n_batch) {
+        int n_eval = std::min<int>(input_size - i, params.n_batch);
+        // predict next tokens
+        if (llama_eval(ctx, input_buf + i, n_eval, n_past, params.n_threads)) {
+            fprintf(stderr, "%s : failed to eval\n", __func__);
+            return 1;
+        }
+        n_past += n_eval;
         auto logits = llama_get_logits(ctx);
         auto n_vocab = llama_n_vocab(ctx);
 
@@ -278,21 +302,10 @@ int main(int argc, char** argv) {
         llama_sample_frequency_and_presence_penalties(ctx, &candidates_p,
                                                       last_n_tokens.data() + last_n_tokens.size() - last_n_repeat,
                                                       last_n_repeat, alpha_frequency, alpha_presence);
-        if (ctx_guidance) {
-            if (guidance_inp.size() > 0) {
-                if (llama_eval(ctx_guidance, guidance_inp.data(), guidance_inp.size(), std::min<int>(guidance_inp.size(), n_ctx), params.n_threads)) {
-                    fprintf(stderr, "%s : failed to eval the guidance\n", __func__);
-                    return 1;
-                }
-            }
 
-            const int n_embd = llama_n_embd(ctx_guidance);
-            const auto guidance_emb = llama_get_embeddings(ctx_guidance);
-        }
         if (!penalize_nl) {
             logits[llama_token_nl()] = nl_logit;
         }
-
         if (temp <= 0) {
             // Greedy sampling
             id = llama_sample_token_greedy(ctx, &candidates_p);
@@ -316,86 +329,21 @@ int main(int argc, char** argv) {
                 id = llama_sample_token(ctx, &candidates_p);
             }
         }
-        // printf("`%d`", candidates_p.size);
 
-        last_n_tokens.erase(last_n_tokens.begin());
-        last_n_tokens.push_back(id);
-    }
-
-    // replace end of text token with newline token when in interactive mode
-    if (id == llama_token_eos() && params.interactive && !params.instruct) {
-        id = llama_token_newline.front();
-        if (params.antiprompt.size() != 0) {
-            // tokenize and inject first reverse prompt
-            const auto first_antiprompt = ::llama_tokenize(ctx, params.antiprompt.front(), false);
-            embd_inp.insert(embd_inp.end(), first_antiprompt.begin(), first_antiprompt.end());
-        }
-    }
-
-    // add it to the context
-    embd.push_back(id);
-
-    // echo this to console
-    input_echo = true;
-
-    // decrement remaining sampling budget
-    --n_remain;
-    // display text
-    if (input_echo) {
-        for (auto id : embd) {
+        // display text
+        if (input_echo) {
             printf("%s", llama_token_to_str(ctx, id));
+            fflush(stdout);
         }
-        fflush(stdout);
-    }
-    // reset color to default if we there is no pending user input
-    if (input_echo && (int)embd_inp.size() == n_consumed) {
-        console_set_color(con_st, CONSOLE_COLOR_DEFAULT);
-    }
-
-    // if not currently processing queued inputs;
-    if ((int)embd_inp.size() <= n_consumed) {
-        // check for reverse prompt
-        if (params.antiprompt.size()) {
-            std::string last_output;
-            for (auto id : last_n_tokens) {
-                last_output += llama_token_to_str(ctx, id);
-            }
-
-            is_antiprompt = false;
-            // Check if each of the reverse prompts appears at the end of the output.
-            // If we're not running interactively, the reverse prompt might be tokenized with some following characters
-            // so we'll compensate for that by widening the search window a bit.
-            for (std::string& antiprompt : params.antiprompt) {
-                size_t extra_padding = params.interactive ? 0 : 2;
-                size_t search_start_pos = last_output.length() > static_cast<size_t>(antiprompt.length() + extra_padding)
-                                              ? last_output.length() - static_cast<size_t>(antiprompt.length() + extra_padding)
-                                              : 0;
-
-                if (last_output.find(antiprompt.c_str(), search_start_pos) != std::string::npos) {
-                    if (params.interactive) {
-                        is_interacting = true;
-                        console_set_color(con_st, CONSOLE_COLOR_USER_INPUT);
-                    }
-                    is_antiprompt = true;
-                    fflush(stdout);
-                    break;
-                }
-            }
-        }
-
-        if (n_past > 0) {
-            is_interacting = false;
+        // reset color to default if we there is no pending user input
+        if (input_echo && (int)embd_inp.size() == n_consumed) {
+            console_set_color(con_st, CONSOLE_COLOR_DEFAULT);
         }
     }
 
     // end of text token
     if (!embd.empty() && embd.back() == llama_token_eos()) {
-        if (params.instruct) {
-            is_interacting = true;
-        } else {
-            fprintf(stderr, " [end of text]\n");
-            break;
-        }
+        fprintf(stderr, " [end of text]\n");
     }
 
     llama_print_timings(ctx);

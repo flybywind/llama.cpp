@@ -1,27 +1,27 @@
 #include "common.h"
 
+#include <algorithm>
 #include <cassert>
-#include <iostream>
 #include <cstring>
 #include <fstream>
-#include <string>
+#include <iostream>
 #include <iterator>
-#include <algorithm>
-#include <sstream>
-#include <unordered_set>
 #include <regex>
+#include <sstream>
+#include <string>
+#include <unordered_set>
 
 #if defined(__APPLE__) && defined(__MACH__)
-#include <sys/types.h>
 #include <sys/sysctl.h>
+#include <sys/types.h>
 #endif
 
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
-#include <windows.h>
 #include <fcntl.h>
 #include <io.h>
+#include <windows.h>
 #else
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -29,18 +29,17 @@
 #endif
 
 #if defined(_MSC_VER)
-#pragma warning(disable: 4244 4267) // possible loss of data
+#pragma warning(disable : 4244 4267)  // possible loss of data
 #endif
 
 int32_t get_num_physical_cores() {
 #ifdef __linux__
     // enumerate the set of thread siblings, num entries is num cores
     std::unordered_set<std::string> siblings;
-    for (uint32_t cpu=0; cpu < UINT32_MAX; ++cpu) {
-        std::ifstream thread_siblings("/sys/devices/system/cpu"
-            + std::to_string(cpu) + "/topology/thread_siblings");
+    for (uint32_t cpu = 0; cpu < UINT32_MAX; ++cpu) {
+        std::ifstream thread_siblings("/sys/devices/system/cpu" + std::to_string(cpu) + "/topology/thread_siblings");
         if (!thread_siblings.is_open()) {
-            break; // no more cpus
+            break;  // no more cpus
         }
         std::string line;
         if (std::getline(thread_siblings, line)) {
@@ -62,7 +61,7 @@ int32_t get_num_physical_cores() {
         return num_physical_cores;
     }
 #elif defined(_WIN32)
-    //TODO: Implement
+    // TODO: Implement
 #endif
     unsigned int n_threads = std::thread::hardware_concurrency();
     return n_threads > 0 ? (n_threads <= 4 ? n_threads : n_threads / 2) : 4;
@@ -75,14 +74,28 @@ void process_escapes(std::string& input) {
     for (std::size_t input_idx = 0; input_idx < input_len; ++input_idx) {
         if (input[input_idx] == '\\' && input_idx + 1 < input_len) {
             switch (input[++input_idx]) {
-                case 'n':  input[output_idx++] = '\n'; break;
-                case 'r':  input[output_idx++] = '\r'; break;
-                case 't':  input[output_idx++] = '\t'; break;
-                case '\'': input[output_idx++] = '\''; break;
-                case '\"': input[output_idx++] = '\"'; break;
-                case '\\': input[output_idx++] = '\\'; break;
-                default:   input[output_idx++] = '\\';
-                           input[output_idx++] = input[input_idx]; break;
+                case 'n':
+                    input[output_idx++] = '\n';
+                    break;
+                case 'r':
+                    input[output_idx++] = '\r';
+                    break;
+                case 't':
+                    input[output_idx++] = '\t';
+                    break;
+                case '\'':
+                    input[output_idx++] = '\'';
+                    break;
+                case '\"':
+                    input[output_idx++] = '\"';
+                    break;
+                case '\\':
+                    input[output_idx++] = '\\';
+                    break;
+                default:
+                    input[output_idx++] = '\\';
+                    input[output_idx++] = input[input_idx];
+                    break;
             }
         } else {
             input[output_idx++] = input[input_idx];
@@ -92,7 +105,7 @@ void process_escapes(std::string& input) {
     input.resize(output_idx);
 }
 
-bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
+bool gpt_params_parse(int argc, char** argv, gpt_params& params) {
     bool invalid_param = false;
     bool escape_prompt = false;
     std::string arg;
@@ -343,7 +356,7 @@ bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
 #ifdef GGML_USE_CUBLAS
             params.main_gpu = std::stoi(argv[i]);
 #else
-      fprintf(stderr, "warning: llama.cpp was compiled without cuBLAS. It is not possible to set a main GPU.\n");
+            fprintf(stderr, "warning: llama.cpp was compiled without cuBLAS. It is not possible to set a main GPU.\n");
 #endif
         } else if (arg == "--tensor-split" || arg == "-ts") {
             if (++i >= argc) {
@@ -367,14 +380,14 @@ bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
                 }
             }
 #else
-      fprintf(stderr, "warning: llama.cpp was compiled without cuBLAS. It is not possible to set a tensor split.\n");
-#endif // GGML_USE_CUBLAS
+            fprintf(stderr, "warning: llama.cpp was compiled without cuBLAS. It is not possible to set a tensor split.\n");
+#endif  // GGML_USE_CUBLAS
         } else if (arg == "--low-vram" || arg == "-lv") {
 #ifdef GGML_USE_CUBLAS
             params.low_vram = true;
 #else
-      fprintf(stderr, "warning: llama.cpp was compiled without cuBLAS. It is not possible to set lower vram usage.\n");
-#endif // GGML_USE_CUBLAS
+            fprintf(stderr, "warning: llama.cpp was compiled without cuBLAS. It is not possible to set lower vram usage.\n");
+#endif  // GGML_USE_CUBLAS
         } else if (arg == "--no-mmap") {
             params.use_mmap = false;
         } else if (arg == "--mtest") {
@@ -433,13 +446,13 @@ bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
                 break;
             }
             params.input_suffix = argv[i];
-        } else if (args == '--knowledge-str') {
+        } else if (arg == "--knowledge-str") {
             if (++i >= argc) {
                 invalid_param = true;
                 break;
             }
-            params.knowledge_str = argv[i]
-        } else if (args == '--knowledge-file') {
+            params.knowledge_str = argv[i];
+        } else if (arg == "--knowledge-file") {
             if (++i >= argc) {
                 invalid_param = true;
                 break;
@@ -454,12 +467,12 @@ bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
             if (params.knowledge_str.back() == '\n') {
                 params.knowledge_str.pop_back();
             }
-        } else if (args == '--knowledge-scale') {
+        } else if (arg == "--knowledge-scale") {
             if (++i >= argc) {
                 invalid_param = true;
                 break;
             }
-            params.knowledge_scale = std::stof(argv[i])
+            params.knowledge_scale = std::stof(argv[i]);
         } else {
             fprintf(stderr, "error: unknown argument: %s\n", arg.c_str());
             gpt_print_usage(argc, argv, default_params);
@@ -472,8 +485,8 @@ bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
         exit(1);
     }
     if (params.prompt_cache_all &&
-            (params.interactive || params.interactive_first ||
-             params.instruct)) {
+        (params.interactive || params.interactive_first ||
+         params.instruct)) {
         fprintf(stderr, "error: --prompt-cache-all not supported in interactive mode yet\n");
         gpt_print_usage(argc, argv, default_params);
         exit(1);
@@ -488,7 +501,7 @@ bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
     return true;
 }
 
-void gpt_print_usage(int /*argc*/, char ** argv, const gpt_params & params) {
+void gpt_print_usage(int /*argc*/, char** argv, const gpt_params& params) {
     fprintf(stderr, "usage: %s [options]\n", argv[0]);
     fprintf(stderr, "\n");
     fprintf(stderr, "options:\n");
@@ -567,8 +580,8 @@ void gpt_print_usage(int /*argc*/, char ** argv, const gpt_params & params) {
     fprintf(stderr, "                        number of layers to store in VRAM\n");
     fprintf(stderr, "  -ts SPLIT --tensor-split SPLIT\n");
     fprintf(stderr, "                        how to split tensors across multiple GPUs, comma-separated list of proportions, e.g. 3,1\n");
-    fprintf(stderr, "  -mg i, --main-gpu i   the GPU to use for scratch and small tensors\n" );
-    fprintf(stderr, "  -lv, --low-vram       don't allocate VRAM scratch buffer\n" );
+    fprintf(stderr, "  -mg i, --main-gpu i   the GPU to use for scratch and small tensors\n");
+    fprintf(stderr, "  -lv, --low-vram       don't allocate VRAM scratch buffer\n");
 #endif
     fprintf(stderr, "  --mtest               compute maximum memory usage\n");
     fprintf(stderr, "  --export              export the computation graph to 'llama.ggml'\n");
@@ -580,29 +593,40 @@ void gpt_print_usage(int /*argc*/, char ** argv, const gpt_params & params) {
     fprintf(stderr, "\n");
 }
 
-std::string gpt_random_prompt(std::mt19937 & rng) {
+std::string gpt_random_prompt(std::mt19937& rng) {
     const int r = rng() % 10;
     switch (r) {
-        case 0: return "So";
-        case 1: return "Once upon a time";
-        case 2: return "When";
-        case 3: return "The";
-        case 4: return "After";
-        case 5: return "If";
-        case 6: return "import";
-        case 7: return "He";
-        case 8: return "She";
-        case 9: return "They";
-        default: return "To";
+        case 0:
+            return "So";
+        case 1:
+            return "Once upon a time";
+        case 2:
+            return "When";
+        case 3:
+            return "The";
+        case 4:
+            return "After";
+        case 5:
+            return "If";
+        case 6:
+            return "import";
+        case 7:
+            return "He";
+        case 8:
+            return "She";
+        case 9:
+            return "They";
+        default:
+            return "To";
     }
 
     return "The";
 }
 
 // TODO: not great allocating this every time
-std::vector<llama_token> llama_tokenize(struct llama_context * ctx, const std::string & text, bool add_bos) {
+std::vector<llama_token> llama_tokenize(struct llama_context* ctx, const std::string& text, bool add_bos) {
     // initialize to prompt numer of chars, since n_tokens <= n_prompt_chars
-    std::vector<llama_token> res(text.size() + (int) add_bos);
+    std::vector<llama_token> res(text.size() + (int)add_bos);
     const int n = llama_tokenize(ctx, text.c_str(), res.data(), res.size(), add_bos);
     assert(n >= 0);
     res.resize(n);
@@ -610,37 +634,37 @@ std::vector<llama_token> llama_tokenize(struct llama_context * ctx, const std::s
     return res;
 }
 
-struct llama_context_params llama_context_params_from_gpt_params(const gpt_params & params) {
+struct llama_context_params llama_context_params_from_gpt_params(const gpt_params& params) {
     auto lparams = llama_context_default_params();
 
-    lparams.n_ctx        = params.n_ctx;
-    lparams.n_batch      = params.n_batch;
+    lparams.n_ctx = params.n_ctx;
+    lparams.n_batch = params.n_batch;
     lparams.n_gpu_layers = params.n_gpu_layers;
-    lparams.main_gpu     = params.main_gpu;
-    memcpy(lparams.tensor_split, params.tensor_split, LLAMA_MAX_DEVICES*sizeof(float));
-    lparams.low_vram     = params.low_vram;
-    lparams.seed         = params.seed;
-    lparams.f16_kv       = params.memory_f16;
-    lparams.use_mmap     = params.use_mmap;
-    lparams.use_mlock    = params.use_mlock;
-    lparams.logits_all   = params.perplexity;
-    lparams.embedding    = params.embedding;
-    lparams.rope_freq_base  = params.rope_freq_base;
+    lparams.main_gpu = params.main_gpu;
+    memcpy(lparams.tensor_split, params.tensor_split, LLAMA_MAX_DEVICES * sizeof(float));
+    lparams.low_vram = params.low_vram;
+    lparams.seed = params.seed;
+    lparams.f16_kv = params.memory_f16;
+    lparams.use_mmap = params.use_mmap;
+    lparams.use_mlock = params.use_mlock;
+    lparams.logits_all = params.perplexity;
+    lparams.embedding = params.embedding;
+    lparams.rope_freq_base = params.rope_freq_base;
     lparams.rope_freq_scale = params.rope_freq_scale;
 
     return lparams;
 }
 
-std::tuple<struct llama_model *, struct llama_context *> llama_init_from_gpt_params(const gpt_params & params) {
+std::tuple<struct llama_model*, struct llama_context*> llama_init_from_gpt_params(const gpt_params& params) {
     auto lparams = llama_context_params_from_gpt_params(params);
 
-    llama_model * model  = llama_load_model_from_file(params.model.c_str(), lparams);
+    llama_model* model = llama_load_model_from_file(params.model.c_str(), lparams);
     if (model == NULL) {
         fprintf(stderr, "%s: error: failed to load model '%s'\n", __func__, params.model.c_str());
         return std::make_tuple(nullptr, nullptr);
     }
 
-    llama_context * lctx = llama_new_context_with_model(model, lparams);
+    llama_context* lctx = llama_new_context_with_model(model, lparams);
     if (lctx == NULL) {
         fprintf(stderr, "%s: error: failed to create context with model '%s'\n", __func__, params.model.c_str());
         llama_free_model(model);
@@ -649,9 +673,9 @@ std::tuple<struct llama_model *, struct llama_context *> llama_init_from_gpt_par
 
     if (!params.lora_adapter.empty()) {
         int err = llama_model_apply_lora_from_file(model,
-                                             params.lora_adapter.c_str(),
-                                             params.lora_base.empty() ? NULL : params.lora_base.c_str(),
-                                             params.n_threads);
+                                                   params.lora_adapter.c_str(),
+                                                   params.lora_base.empty() ? NULL : params.lora_base.c_str(),
+                                                   params.n_threads);
         if (err != 0) {
             fprintf(stderr, "%s: error: failed to apply lora adapter\n", __func__);
             llama_free(lctx);
@@ -663,7 +687,7 @@ std::tuple<struct llama_model *, struct llama_context *> llama_init_from_gpt_par
     return std::make_tuple(model, lctx);
 }
 
-void console_init(console_state & con_st) {
+void console_init(console_state& con_st) {
 #if defined(_WIN32)
     // Windows-specific console initialization
     DWORD dwMode = 0;
@@ -710,7 +734,7 @@ void console_init(console_state & con_st) {
 #endif
 }
 
-void console_cleanup(console_state & con_st) {
+void console_cleanup(console_state& con_st) {
     // Reset console color
     console_set_color(con_st, CONSOLE_COLOR_DEFAULT);
 
@@ -726,10 +750,10 @@ void console_cleanup(console_state & con_st) {
 }
 
 /* Keep track of current color of output, and emit ANSI code if it changes. */
-void console_set_color(console_state & con_st, console_color_t color) {
+void console_set_color(console_state& con_st, console_color_t color) {
     if (con_st.use_color && con_st.color != color) {
         fflush(stdout);
-        switch(color) {
+        switch (color) {
             case CONSOLE_COLOR_DEFAULT:
                 fprintf(con_st.out, ANSI_COLOR_RESET);
                 break;
@@ -766,16 +790,16 @@ char32_t getchar32() {
                 continue;
             }
 
-            if ((wc >= 0xD800) && (wc <= 0xDBFF)) { // Check if wc is a high surrogate
+            if ((wc >= 0xD800) && (wc <= 0xDBFF)) {  // Check if wc is a high surrogate
                 high_surrogate = wc;
                 continue;
-            } else if ((wc >= 0xDC00) && (wc <= 0xDFFF)) { // Check if wc is a low surrogate
-                if (high_surrogate != 0) { // Check if we have a high surrogate
+            } else if ((wc >= 0xDC00) && (wc <= 0xDFFF)) {  // Check if wc is a low surrogate
+                if (high_surrogate != 0) {                  // Check if we have a high surrogate
                     return ((high_surrogate - 0xD800) << 10) + (wc - 0xDC00) + 0x10000;
                 }
             }
 
-            high_surrogate = 0; // Reset the high surrogate
+            high_surrogate = 0;  // Reset the high surrogate
             return static_cast<char32_t>(wc);
         }
     }
@@ -786,14 +810,14 @@ char32_t getchar32() {
     }
 
 #if WCHAR_MAX == 0xFFFF
-    if ((wc >= 0xD800) && (wc <= 0xDBFF)) { // Check if wc is a high surrogate
+    if ((wc >= 0xD800) && (wc <= 0xDBFF)) {  // Check if wc is a high surrogate
         wchar_t low_surrogate = getwchar();
-        if ((low_surrogate >= 0xDC00) && (low_surrogate <= 0xDFFF)) { // Check if the next wchar is a low surrogate
+        if ((low_surrogate >= 0xDC00) && (low_surrogate <= 0xDFFF)) {  // Check if the next wchar is a low surrogate
             return (static_cast<char32_t>(wc & 0x03FF) << 10) + (low_surrogate & 0x03FF) + 0x10000;
         }
     }
-    if ((wc >= 0xD800) && (wc <= 0xDFFF)) { // Invalid surrogate pair
-        return 0xFFFD; // Return the replacement character U+FFFD
+    if ((wc >= 0xD800) && (wc <= 0xDFFF)) {  // Invalid surrogate pair
+        return 0xFFFD;                       // Return the replacement character U+FFFD
     }
 #endif
 
@@ -801,7 +825,7 @@ char32_t getchar32() {
 #endif
 }
 
-void pop_cursor(console_state & con_st) {
+void pop_cursor(console_state& con_st) {
 #if defined(_WIN32)
     if (con_st.hConsole != NULL) {
         CONSOLE_SCREEN_BUFFER_INFO bufferInfo;
@@ -830,7 +854,7 @@ int estimateWidth(char32_t codepoint) {
 #endif
 }
 
-int put_codepoint(console_state & con_st, const char* utf8_codepoint, size_t length, int expectedWidth) {
+int put_codepoint(console_state& con_st, const char* utf8_codepoint, size_t length, int expectedWidth) {
 #if defined(_WIN32)
     CONSOLE_SCREEN_BUFFER_INFO bufferInfo;
     if (!GetConsoleScreenBufferInfo(con_st.hConsole, &bufferInfo)) {
@@ -863,14 +887,14 @@ int put_codepoint(console_state & con_st, const char* utf8_codepoint, size_t len
         return expectedWidth;
     }
 
-    fputs("\033[6n", con_st.tty); // Query cursor position
+    fputs("\033[6n", con_st.tty);  // Query cursor position
     int x1, x2, y1, y2;
     int results = 0;
     results = fscanf(con_st.tty, "\033[%d;%dR", &y1, &x1);
 
     fwrite(utf8_codepoint, length, 1, con_st.tty);
 
-    fputs("\033[6n", con_st.tty); // Query cursor position
+    fputs("\033[6n", con_st.tty);  // Query cursor position
     results += fscanf(con_st.tty, "\033[%d;%dR", &y2, &x2);
 
     if (results != 4) {
@@ -888,7 +912,7 @@ int put_codepoint(console_state & con_st, const char* utf8_codepoint, size_t len
 #endif
 }
 
-void replace_last(console_state & con_st, char ch) {
+void replace_last(console_state& con_st, char ch) {
 #if defined(_WIN32)
     pop_cursor(con_st);
     put_codepoint(con_st, &ch, 1, 1);
@@ -897,7 +921,7 @@ void replace_last(console_state & con_st, char ch) {
 #endif
 }
 
-void append_utf8(char32_t ch, std::string & out) {
+void append_utf8(char32_t ch, std::string& out) {
     if (ch <= 0x7F) {
         out.push_back(static_cast<unsigned char>(ch));
     } else if (ch <= 0x7FF) {
@@ -918,7 +942,7 @@ void append_utf8(char32_t ch, std::string & out) {
 }
 
 // Helper function to remove the last UTF-8 character from a string
-void pop_back_utf8_char(std::string & line) {
+void pop_back_utf8_char(std::string& line) {
     if (line.empty()) {
         return;
     }
@@ -927,12 +951,12 @@ void pop_back_utf8_char(std::string & line) {
 
     // Find the start of the last UTF-8 character (checking up to 4 bytes back)
     for (size_t i = 0; i < 3 && pos > 0; ++i, --pos) {
-        if ((line[pos] & 0xC0) != 0x80) break; // Found the start of the character
+        if ((line[pos] & 0xC0) != 0x80) break;  // Found the start of the character
     }
     line.erase(pos);
 }
 
-bool console_readline(console_state & con_st, std::string & line) {
+bool console_readline(console_state& con_st, std::string& line) {
     console_set_color(con_st, CONSOLE_COLOR_USER_INPUT);
     if (con_st.out != stdout) {
         fflush(stdout);
@@ -945,14 +969,14 @@ bool console_readline(console_state & con_st, std::string & line) {
 
     char32_t input_char;
     while (true) {
-        fflush(con_st.out); // Ensure all output is displayed before waiting for input
+        fflush(con_st.out);  // Ensure all output is displayed before waiting for input
         input_char = getchar32();
 
         if (input_char == '\r' || input_char == '\n') {
             break;
         }
 
-        if (input_char == (char32_t) WEOF || input_char == 0x04 /* Ctrl+D*/) {
+        if (input_char == (char32_t)WEOF || input_char == 0x04 /* Ctrl+D*/) {
             end_of_stream = true;
             break;
         }
@@ -963,17 +987,17 @@ bool console_readline(console_state & con_st, std::string & line) {
             is_special_char = false;
         }
 
-        if (input_char == '\033') { // Escape sequence
+        if (input_char == '\033') {  // Escape sequence
             char32_t code = getchar32();
             if (code == '[' || code == 0x1B) {
                 // Discard the rest of the escape sequence
-                while ((code = getchar32()) != (char32_t) WEOF) {
+                while ((code = getchar32()) != (char32_t)WEOF) {
                     if ((code >= 'A' && code <= 'Z') || (code >= 'a' && code <= 'z') || code == '~') {
                         break;
                     }
                 }
             }
-        } else if (input_char == 0x08 || input_char == 0x7F) { // Backspace
+        } else if (input_char == 0x08 || input_char == 0x7F) {  // Backspace
             if (!widths.empty()) {
                 int count;
                 do {
